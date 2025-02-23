@@ -1,0 +1,4 @@
+# Ne pas suivre les fichiers et dossiers suivants :
+node_modules/
+.env
+.DS_Store
