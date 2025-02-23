@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
-import styled, { keyframes } from "styled-components";
+import styled, { css, keyframes } from "styled-components";
 import { FaTrash, FaEdit } from "react-icons/fa";
-
 
 // 🎨 Dégradé d'arrière-plan animé
 const GradientBackground = styled.div`
@@ -15,31 +14,13 @@ const GradientBackground = styled.div`
   padding: 20px;
 `;
 
-// 🎨 Animation pour l'apparition des tâches
-const fadeIn = keyframes`
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
-`;
-
-// 🎨 Animation pour la suppression des tâches
+// 🎨 Animation de suppression des tâches (corrigée avec css``)
 const fadeOut = keyframes`
   from { opacity: 1; transform: scale(1); }
   to { opacity: 0; transform: scale(0.9); }
 `;
 
-// 🎨 Style de la carte
-const Card = styled.div`
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.2);
-  width: 400px;
-  text-align: center;
-  margin: 15px;
-  animation: ${fadeIn} 0.3s ease-in-out;
-`;
-
-// 🎨 Style des tâches
+// 🎨 Style des tâches avec animation dynamique
 const TaskItem = styled.div`
   display: flex;
   justify-content: space-between;
@@ -50,8 +31,13 @@ const TaskItem = styled.div`
   background: ${(props) => (props.completed ? "#a0e7a0" : "#f9f9f9")};
   border-left: 5px solid ${(props) => (props.completed ? "#2ecc71" : "#ff6b6b")};
   transition: 0.3s;
-  animation: ${fadeIn} 0.5s ease-in-out;
   position: relative;
+
+  ${(props) =>
+    props.deleting &&
+    css`
+      animation: ${fadeOut} 0.3s ease-in-out;
+    `}
 
   &:hover {
     transform: scale(1.02);
@@ -59,25 +45,7 @@ const TaskItem = styled.div`
   }
 `;
 
-// 🎨 Style du bouton "Ajouter"
-const CustomButton = styled.button`
-  background: #ff6b6b;
-  color: white;
-  border: none;
-  padding: 10px 15px;
-  font-size: 16px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: bold;
-  transition: 0.3s ease-in-out;
-  
-  &:hover {
-    background: #ff3b3b;
-    transform: scale(1.05);
-  }
-`;
-
-// 🎨 Boutons d'actions
+// 🎨 Style des boutons
 const ActionButton = styled.button`
   background: ${(props) => (props.delete ? "#e74c3c" : "#3498db")};
   color: white;
@@ -94,12 +62,6 @@ const ActionButton = styled.button`
   }
 `;
 
-const Counter = styled.p`
-  font-size: 14px;
-  color: white;
-  font-weight: bold;
-`;
-
 function App() {
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState("");
@@ -114,7 +76,7 @@ function App() {
       setTasks(updatedTasks);
       setEditingIndex(null);
     } else {
-      setTasks([...tasks, { text: newTask, completed: false }]);
+      setTasks([...tasks, { text: newTask, completed: false, deleting: false }]);
     }
     setNewTask("");
   };
@@ -126,14 +88,15 @@ function App() {
     setTasks(updatedTasks);
   };
 
-  // Supprimer une tâche avec effet de disparition
+  // Supprimer une tâche avec animation
   const deleteTask = (index) => {
     let updatedTasks = [...tasks];
-    updatedTasks[index].deleting = true; 
+    updatedTasks[index].deleting = true; // Active l'animation de suppression
     setTasks([...updatedTasks]);
+
     setTimeout(() => {
       setTasks(tasks.filter((_, i) => i !== index));
-    }, 300);
+    }, 300); // Attends la fin de l'animation avant de supprimer
   };
 
   // Modifier une tâche
@@ -148,11 +111,8 @@ function App() {
         Taskify 📝
       </h1>
 
-      {/* ✅ Message motivant */}
-      <Counter>{tasks.length} tâche(s) en cours. Garde le rythme ! 🚀</Counter>
-
       {/* 🏆 Section Ajouter/Modifier une tâche */}
-      <Card>
+      <div style={{ background: "white", padding: "20px", borderRadius: "12px", boxShadow: "0px 4px 15px rgba(0, 0, 0, 0.2)", textAlign: "center", width: "400px" }}>
         <h3>{editingIndex !== null ? "Modifier la tâche" : "Ajouter une nouvelle tâche"}</h3>
         <input
           type="text"
@@ -161,21 +121,17 @@ function App() {
           value={newTask}
           onChange={(e) => setNewTask(e.target.value)}
         />
-        <CustomButton className="mt-3" onClick={addTask}>
+        <button className="btn btn-primary mt-3" onClick={addTask}>
           {editingIndex !== null ? "Modifier" : "Ajouter"}
-        </CustomButton>
-      </Card>
+        </button>
+      </div>
 
       {/* 📌 Liste des tâches */}
-      <Card>
+      <div style={{ background: "white", padding: "20px", borderRadius: "12px", boxShadow: "0px 4px 15px rgba(0, 0, 0, 0.2)", textAlign: "center", width: "400px", marginTop: "20px" }}>
         <h3>Mes Tâches</h3>
         {tasks.length === 0 ? <p>Aucune tâche pour le moment.</p> : null}
         {tasks.map((task, index) => (
-          <TaskItem
-            key={index}
-            completed={task.completed}
-            style={{ animation: task.deleting ? `${fadeOut} 0.3s ease-in-out` : "" }}
-          >
+          <TaskItem key={index} completed={task.completed} deleting={task.deleting}>
             <span onClick={() => toggleComplete(index)} style={{ cursor: "pointer" }}>
               {task.completed ? <s>{task.text}</s> : task.text}
             </span>
@@ -185,7 +141,7 @@ function App() {
             </div>
           </TaskItem>
         ))}
-      </Card>
+      </div>
     </GradientBackground>
   );
 }
