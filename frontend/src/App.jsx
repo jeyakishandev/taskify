@@ -18,70 +18,93 @@ const vibrate = () => {
 function App() {
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState("");
-  const [editingIndex, setEditingIndex] = useState(null);
+  const [editingId, setEditingId] = useState(null);
 
-  // Charger les tâches depuis LocalStorage au démarrage
+  // 🔥 Charger les tâches depuis le **backend**
   useEffect(() => {
-    const storedTasks = JSON.parse(localStorage.getItem("tasks"));
-    if (storedTasks) {
-      setTasks(storedTasks);
-    }
+    fetch("http://localhost:5001/tasks")
+      .then((res) => res.json())
+      .then((data) => setTasks(data))
+      .catch((err) => console.error("❌ Erreur chargement tâches :", err));
   }, []);
 
-  // Sauvegarder les tâches dans LocalStorage à chaque modification
-  useEffect(() => {
-    localStorage.setItem("tasks", JSON.stringify(tasks));
-  }, [tasks]);
-
-  // Ajouter une tâche
+  // ✅ Ajouter une tâche (Backend + Frontend)
   const addTask = () => {
     if (newTask.trim() === "") return;
-    if (editingIndex !== null) {
-      let updatedTasks = [...tasks];
-      updatedTasks[editingIndex].text = newTask;
-      setTasks(updatedTasks);
-      setEditingIndex(null);
+
+    if (editingId !== null) {
+      // ✏️ Modifier une tâche
+      fetch(`http://localhost:5001/tasks/${editingId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completed: false, text: newTask }),
+      })
+        .then(() => {
+          setTasks(tasks.map((t) => (t.id === editingId ? { ...t, text: newTask } : t)));
+          setEditingId(null);
+          setNewTask("");
+        })
+        .catch((err) => console.error("❌ Erreur mise à jour :", err));
     } else {
-      setTasks([...tasks, { text: newTask, completed: false }]);
+      // ➕ Ajouter une tâche
+      fetch("http://localhost:5001/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: newTask }),
+      })
+        .then((res) => res.json())
+        .then((newTaskFromServer) => {
+          setTasks([...tasks, newTaskFromServer]);
+          setNewTask("");
+        })
+        .catch((err) => console.error("❌ Erreur ajout :", err));
     }
-    setNewTask("");
-    playSound("/success.mp3"); // Son d'ajout
-    vibrate(); // Vibration courte
   };
 
-  // Marquer une tâche comme complétée
-  const toggleComplete = (index) => {
-    const updatedTasks = [...tasks];
-    updatedTasks[index].completed = !updatedTasks[index].completed;
-    setTasks(updatedTasks);
+  // ✅ Marquer une tâche comme complétée
+  const toggleComplete = (id, completed) => {
+    fetch(`http://localhost:5001/tasks/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ completed: !completed }),
+    })
+      .then(() => {
+        setTasks(tasks.map((task) => (task.id === id ? { ...task, completed: !completed } : task)));
+      })
+      .catch((err) => console.error("❌ Erreur completion :", err));
   };
 
-  // Supprimer une tâche avec animation
-  const deleteTask = (index) => {
-    playSound("/delete.mp3"); // Son de suppression
-    vibrate(); // Vibration courte
-    setTasks(tasks.filter((_, i) => i !== index));
+  // 🗑️ Supprimer une tâche (Backend + Animation)
+  const deleteTask = (id) => {
+    playSound("/delete.mp3");
+    vibrate();
+
+    fetch(`http://localhost:5001/tasks/${id}`, { method: "DELETE" })
+      .then(() => {
+        setTasks(tasks.filter((task) => task.id !== id));
+      })
+      .catch((err) => console.error("❌ Erreur suppression :", err));
   };
 
-  // Modifier une tâche
-  const editTask = (index) => {
-    setNewTask(tasks[index].text);
-    setEditingIndex(index);
+  // ✏️ Modifier une tâche
+  const editTask = (id, text) => {
+    setNewTask(text);
+    setEditingId(id);
   };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-r from-blue-500 to-purple-600 p-6">
       <h1 className="text-white text-4xl font-bold mb-6">Taskify 📝</h1>
 
-      {/* Compteur de tâches */}
+      {/* 🔥 Compteur de tâches */}
       <div className="text-white mb-4">
-        <p>📌 Tâches actives : {tasks.filter(task => !task.completed).length}</p>
-        <p>✅ Tâches complétées : {tasks.filter(task => task.completed).length}</p>
+        <p>📌 Tâches actives : {tasks.filter((t) => !t.completed).length}</p>
+        <p>✅ Tâches complétées : {tasks.filter((t) => t.completed).length}</p>
       </div>
 
-      {/* Section Ajouter/Modifier une tâche */}
+      {/* 📝 Ajouter une tâche */}
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md text-center">
-        <h3 className="text-xl font-semibold mb-3">{editingIndex !== null ? "Modifier la tâche" : "Ajouter une nouvelle tâche"}</h3>
+        <h3 className="text-xl font-semibold mb-3">{editingId ? "Modifier" : "Ajouter"} une tâche</h3>
         <input
           type="text"
           className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -93,35 +116,38 @@ function App() {
           className="mt-3 w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300"
           onClick={addTask}
         >
-          {editingIndex !== null ? "Modifier" : "Ajouter"}
+          {editingId ? "Modifier" : "Ajouter"}
         </button>
       </div>
 
-      {/* Liste des tâches avec animation */}
+      {/* 📋 Liste des tâches */}
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md mt-6">
         <h3 className="text-xl font-semibold mb-3">Mes Tâches</h3>
         {tasks.length === 0 ? <p className="text-gray-500">Aucune tâche pour le moment.</p> : null}
+
         <AnimatePresence>
-          {tasks.map((task, index) => (
+          {tasks.map((task) => (
             <motion.div
-              key={index}
+              key={task.id}
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.3 }}
-              className={`flex justify-between items-center p-3 rounded-md mb-2 transition transform ${task.completed ? "bg-green-200" : "bg-gray-100"}`}
+              className={`flex justify-between items-center p-3 rounded-md mb-2 transition transform ${
+                task.completed ? "bg-green-200" : "bg-gray-100"
+              }`}
             >
               <span
-                onClick={() => toggleComplete(index)}
+                onClick={() => toggleComplete(task.id, task.completed)}
                 className={`cursor-pointer ${task.completed ? "line-through text-gray-500" : "text-black"}`}
               >
                 {task.text}
               </span>
               <div className="flex">
-                <button className="text-blue-500 hover:text-blue-700 mr-2" onClick={() => editTask(index)}>
+                <button className="text-blue-500 hover:text-blue-700 mr-2" onClick={() => editTask(task.id, task.text)}>
                   <FaEdit />
                 </button>
-                <button className="text-red-500 hover:text-red-700" onClick={() => deleteTask(index)}>
+                <button className="text-red-500 hover:text-red-700" onClick={() => deleteTask(task.id)}>
                   <FaTrash />
                 </button>
               </div>
